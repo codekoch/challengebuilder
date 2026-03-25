@@ -1,4 +1,4 @@
-# Challenge Builder 🕹️
+# <a href=https://codekoch.github.io/challengebuilder/>Challenge Builder 🕹️</a>
 
 Der **Challenge Builder** ist ein Web-Tool für Lehrkräfte, um im Handumdrehen aus normalen Schulbuchaufgaben interaktive, digitale (Retro-Terminal) Challenges für den Unterricht zu erstellen. Das Tool generiert daraus eine voll funktionsfähige, eigenständige HTML-Spieldatei, die offline bei den Schülern im Browser läuft.
 
