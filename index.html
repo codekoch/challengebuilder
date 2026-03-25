@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challenge Builder</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #0056b3;
+        }
+
+        textarea {
+            width: 100%;
+            height: 500px;
+            font-family: monospace;
+            padding: 1rem;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            white-space: pre;
+        }
+
+        button {
+            background: #0056b3;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 1rem;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #004494;
+        }
+
+        button.secondary {
+            background: #6c757d;
+            font-size: 1rem;
+            padding: 0.8rem 1.5rem;
+            margin-top: 0;
+        }
+
+        button.secondary:hover {
+            background: #5a6268;
+        }
+
+        .info {
+            background: #e9ecef;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            border-left: 4px solid #0056b3;
+            line-height: 1.5;
+        }
+
+        .prompt-container {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .prompt-container textarea {
+            height: 300px;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Challenge Builder 🕹️</h1>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+        <button class="secondary" style="width: 100%;" onclick="togglePrompt()">🤖 System-Prompt für KI anzeigen /
+            kopieren</button>
+    </div>
+
+    <!-- Versteckter Container für den KI Prompt -->
+    <div id="promptContainer" class="prompt-container">
+        <p style="margin-top: 0; font-size: 0.9rem;"><strong>Anleitung:</strong> Kopiere diesen Text und sende ihn
+            zusammen mit den abfotografierten Schulbuchaufgaben an eine KI deiner Wahl. Füge die JSON-Antwort danach im
+            Feld unten ein.</p>
+        <textarea id="promptOutput" readonly>Du bist Experte für didaktische Inhalte und Web-Tools. Ich lade im Anhang Bilder von Schulbuchaufgaben hoch. 
+Erstelle daraus ein JSON-Template für den "Challenge Builder".
+
+Bitte befolge strikt diese Regeln für die Ausgabe:
+1. **Dateiformat:** Gib ausschließlich reinen JSON-Code zurück. Kein Text vor oder nach dem JSON. Keine Markdown-Formatierung (wie ```json) um das JSON herum.
+2. **Valides JSON (SEHR WICHTIG):** - **Zeilenumbrüche:** Es dürfen KEINE echten Zeilenumbrüche (Enter) innerhalb von Text-Werten (z.B. in `instruction` oder `text`) vorkommen! Nutze stattdessen das HTML-Tag `<br>` für Zeilenumbrüche.
+   - **Backslashes & LaTeX:** In JSON ist der Backslash ein Steuerzeichen. Damit die Formeln nach dem Parsen korrekt bleiben, MÜSSEN alle Backslashes zwingend verdoppelt werden. Schreibe z.B. `\\( \\frac{1}{2} \\)` anstelle von `\( \frac{1}{2} \)`.
+3. **Fachspezifische Vorgaben (z.B. Physik/Mathe):**
+   - Gebe ggf. benötigte Festwerte (Konstanten, Ortsfaktor etc.) im Feld "constants" an.
+   - Biete pro Aufgabe bis zu 4 inhaltlich sinnvolle Tipps an, die schrittweise zur Lösung führen.
+   - Wandle Erklär- oder Zeichenaufgaben in sinnvolle Multiple-Choice-Fragen (type: "mc") um.
+   - Rechne bei Eingabe-Aufgaben (type: "input") exakte Ergebnisse aus. Gib im Array "correctValues" alle akzeptierten Schreibweisen als Strings an (z.B. ["1.71", "1,71", "1.7", "1,7"]).
+
+Das Ergebnis MUSS exakt diese JSON-Struktur haben:
+{
+  "topic": "Titel des Themas (z.B. Hall-Effekt)",
+  "bookHint": "Bitte halte dein Physik-Schulbuch bereit...<br>Du benötigst es...",
+  "gameId": "eindeutige_id_ohne_leerzeichen",
+  "tasks": [
+    {
+      "type": "input",
+      "text": "Fragetext (inklusive LaTeX Formeln z.B. \\( A = \\pi \\cdot r^2 \\))",
+      "source": "Aufgabe 1 (Buch S. 213)",
+      "constants": "Elementarladung \\( e = 1,602 \\cdot 10^{-19} \\text{ C} \\)",
+      "imageHint": "Siehe Skizze zu Aufgabe 1 im Schulbuch S. 213",
+      "instruction": "GIB DEIN ERGEBNIS EIN.<br>> Runden auf zwei Nachkommastellen.",
+      "inputUnit": "mm/s",
+      "hints": [
+        "TIPP 1: Erste Hilfe...",
+        "TIPP 2: Zweite Hilfe..."
+      ],
+      "correctValues": ["1.71", "1,71"],
+      "cheat": "1,71 mm/s (Rechenweg...)"
+    },
+    {
+      "type": "mc",
+      "text": "MC-Fragetext",
+      "source": "Aufgabe 2",
+      "constants": null,
+      "imageHint": null,
+      "instruction": "WÄHLE DIE KORREKTE AUSSAGE:",
+      "options": [
+        "A) Antwortmöglichkeit 1",
+        "B) Antwortmöglichkeit 2",
+        "C) Antwortmöglichkeit 3"
+      ],
+      "correctIndex": 1,
+      "hints": ["Tipp 1", "Tipp 2"],
+      "cheat": "B) Antwortmöglichkeit 2"
+    }
+  ]
+}
+
+Hinweise zur Struktur:
+- "constants" und "imageHint": Falls nicht benötigt, auf null setzen.
+- "correctIndex" (nur bei "mc"): Der nullbasierte Index der korrekten Antwort im options Array.
+- "correctValues" (nur bei "input"): Array mit akzeptierten Eingaben (Zahlen als Strings).
+- "inputUnit" (nur bei "input"): Die Einheit, die hinter dem Eingabefeld stehen soll (z.B. "V", "m/s", etc.). Setze es auf null, wenn keine Einheit gefragt ist.
+- "cheat": Wird dem Lehrer bei der Tastenkombination "Alt+S" im Klartext angezeigt.</textarea>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="secondary" style="width: auto;" onclick="copyPrompt()">📋 Kopieren</button>
+            <span id="copyMsg"
+                style="color: #28a745; font-weight: bold; opacity: 0; transition: opacity 0.3s;">Kopiert!</span>
+        </div>
+    </div>
+
+    <div class="info" style="margin-top: 1rem;">
+        <strong>Schritt 2:</strong> Füge den generierten reinen JSON-Code der KI in das Textfeld unten ein und klicke
+        auf "Spiel generieren". Die App verschlüsselt die Lösungen automatisch und lädt die fertige HTML-Spieldatei
+        herunter.
+        <br><br><i>Tipp: Das Textfeld enthält aktuell als Beispiel eine Vorlage für Challenge zum "Hall-Effekt" im JSON
+            Format. Du kannst es direkt
+            testen!</i>
+    </div>
+
+    <textarea id="jsonInput">{
+  "topic": "Hall-Effekt",
+  "bookHint": "Bitte halte dein Physik-Schulbuch bereit.\\nDu benötigst es für die Abbildungen zu den Aufgaben.",
+  "gameId": "halleffekt_challenge_01",
+  "tasks": [
+    {
+      "type": "input",
+      "text": "An den Rändern einer 2,5 cm breiten Metallfolie wird in einem Magnetfeld (\\( B = 0,28 \\text{ T} \\)) eine Hall-Spannung von \\( 12 \\text{ } \\mu\\text{V} \\) gemessen. Berechnen Sie die Geschwindigkeit der Elektronen.",
+      "source": "Aufgabe 1 (Buch S. 213)",
+      "constants": "Elementarladung \\( e = 1,602 \\cdot 10^{-19} \\text{ C} \\) (als generelle Info zur Veranschaulichung)",
+      "imageHint": null,
+      "instruction": "GIB DEIN ERGEBNIS IN mm/s EIN.<br>> Runden auf zwei Nachkommastellen (Format: x.xx oder x,xx).",
+      "inputUnit": "mm/s",
+      "hints": [
+        "TIPP 1: Die Formel für die Hall-Spannung lautet \\( U_H = v \\cdot B \\cdot b \\).",
+        "TIPP 2: Stelle die Formel nach der gesuchten Geschwindigkeit \\( v \\) um: \\( v = \\frac{U_H}{B \\cdot b} \\).",
+        "TIPP 3: Achte zwingend auf die SI-Einheiten! \\( b = 0,025 \\text{ m}, U_H = 12 \\cdot 10^{-6} \\text{ V} \\).",
+        "TIPP 4: Wenn du alles in SI-Einheiten rechnest, ist dein Ergebnis in m/s. Multipliziere mit 1000 für mm/s."
+      ],
+      "correctValues": ["1.71", "1,71"],
+      "cheat": "1,71 mm/s"
+    },
+    {
+      "type": "mc",
+      "text": "Wie würde sich die Polung der Hall-Spannung ändern, wenn a) positive, b) positive und negative Ladungsträger gleichermaßen frei beweglich wären?",
+      "source": "Aufgabe 2 (Buch S. 213)",
+      "constants": null,
+      "imageHint": null,
+      "instruction": "WÄHLE DIE KORREKTE AUSSAGE:",
+      "options": [
+        "A) a) Sie bleibt gleich. b) Die Spannung verdoppelt sich.",
+        "B) a) Sie kehrt sich um. b) Die Hall-Spannung wird null.",
+        "C) a) Sie kehrt sich um. b) Die Spannung bleibt gleich.",
+        "D) a) Sie bleibt gleich. b) Die Hall-Spannung wird null."
+      ],
+      "correctIndex": 1,
+      "hints": [
+        "TIPP 1: In welche Richtung wirkt die Lorentzkraft auf positive Ladungen? Wende die Rechte-Hand-Regel an.",
+        "TIPP 2: Die Stromrichtung \\( I \\) (technisch) ist bei positiven Ladungen gleich der Bewegungsrichtung \\( v \\), bei Elektronen entgegengesetzt.",
+        "TIPP 3: Sowohl positive als auch negative Ladungen werden von der Lorentzkraft zur SELBEN Kante der Folie abgelenkt!",
+        "TIPP 4: Wenn sich positive und negative Ladungen an derselben Kante sammeln, neutralisieren sie sich gegenseitig."
+      ],
+      "cheat": "B) a) Sie kehrt sich um. b) Die Hall-Spannung wird null."
+    },
+    {
+      "type": "mc",
+      "text": "Beurteilen Sie, ob eine Hall-Spannung \\( U_H \\) gemessen wird, wenn die \\( B \\)-Feld-Linien, wie in der Abbildung gezeigt, parallel zur Fläche der Folie verlaufen.",
+      "source": "Aufgabe 3 (Buch S. 213)",
+      "constants": null,
+      "imageHint": "Siehe Skizze zu Aufgabe 3 im Schulbuch S. 213",
+      "instruction": "WÄHLE DIE KORREKTE BEGRÜNDUNG:",
+      "options": [
+        "A) Ja, aber sie ist viel schwächer, da die vom Magnetfeld durchsetzte Fläche kleiner ist.",
+        "B) Nein, denn die Lorentzkraft wirkt in diesem Fall senkrecht zur Folienoberfläche (nach oben/unten) und nicht zu den Messpunkten an der Seite.",
+        "C) Ja, die Spannung ist genauso groß, da B-Feld und Geschwindigkeit weiterhin senkrecht aufeinander stehen.",
+        "D) Nein, weil sich Elektronen parallel zu den B-Feld-Linien bewegen und somit keine Lorentzkraft erfahren."
+      ],
+      "correctIndex": 1,
+      "hints": [
+        "TIPP 1: Die Lorentzkraft steht immer senkrecht auf BEIDEN Vektoren (Geschwindigkeit \\( v \\) und Magnetfeld \\( B \\)).",
+        "TIPP 2: In welche Richtung zeigt die Lorentzkraft (3-Finger-Regel), wenn die Geschwindigkeit nach rechts und das Magnetfeld nach oben (in der Folienebene) zeigt?",
+        "TIPP 3: Die Kraft zeigt aus der Zeichenebene heraus (oder hinein).",
+        "TIPP 4: Die Ladungsträger werden auf die flachen Oberflächen der Folie gedrückt, nicht zu den seitlichen Kontakten P1 und P2."
+      ],
+      "cheat": "B) Nein, denn die Lorentzkraft wirkt in diesem Fall senkrecht zur Folienoberfläche."
+    },
+    {
+      "type": "mc",
+      "text": "Erläutern Sie, wie sich mithilfe einer Hall-Sonde die Richtung eines Magnetfelds bestimmen lässt.",
+      "source": "Aufgabe 4 (Buch S. 213)",
+      "constants": null,
+      "imageHint": null,
+      "instruction": "WÄHLE DAS KORREKTE VERFAHREN:",
+      "options": [
+        "A) Man dreht die Sonde, bis die Hall-Spannung null wird. Die B-Feld-Richtung verläuft dann senkrecht zur Sondenfläche.",
+        "B) Man bewegt die Sonde geradlinig; die Richtung der stärksten Spannungsänderung ist die B-Feld-Richtung.",
+        "C) Man dreht die Sonde, bis die Hall-Spannung maximal ist. Die B-Feld-Linien durchsetzen die Sonde dann senkrecht. Das Vorzeichen gibt die Orientierung an.",
+        "D) Die Richtung lässt sich nicht bestimmen, da die Hall-Spannung nur vom Betrag des B-Feldes abhängt."
+      ],
+      "correctIndex": 2,
+      "hints": [
+        "TIPP 1: Die klassische Formel \\( U_H = v \\cdot B \\cdot b \\) gilt nur für einen bestimmten Einstrahlwinkel des Magnetfeldes.",
+        "TIPP 2: Wenn das B-Feld schräg einfällt, ist nur die senkrecht zur Folie stehende Komponente des Feldes für die Lorentzkraft verantwortlich.",
+        "TIPP 3: Wann ist diese senkrechte Komponente am größten?",
+        "TIPP 4: Durch Drehen sucht man das Maximum der Spannung. Die Polung verrät dann, ob das Feld 'von vorne' oder 'von hinten' eintritt."
+      ],
+      "cheat": "C) Man dreht die Sonde, bis die Hall-Spannung maximal ist."
+    }
+  ]
+}</textarea>
+    <div style="margin-top: 1rem; margin-bottom: 1rem;">
+        <label for="leaderboardUrlInput" style="font-weight: bold;">Leaderboard Server-URL (optional):</label><br>
+        <input type="text" id="leaderboardUrlInput" placeholder="https://deine-domain.de/pfad/zu/leaderboard.php"
+            style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 0.5rem;">
+    </div>
+    <button onclick="buildGame()">Spiel generieren & Herunterladen</button>
+
+    <script>
+        function togglePrompt() {
+            const container = document.getElementById('promptContainer');
+            container.style.display = container.style.display === 'none' || container.style.display === '' ? 'block' : 'none';
+        }
+
+        function copyPrompt() {
+            const promptText = document.getElementById('promptOutput');
+            promptText.select();
+            document.execCommand('copy');
+
+            // Visuelles Feedback
+            const msg = document.getElementById('copyMsg');
+            msg.style.opacity = '1';
+            setTimeout(() => { msg.style.opacity = '0'; }, 2000);
+        }
+
+        function buildGame() {
+            const jsonText = document.getElementById('jsonInput').value;
+            const leaderboardUrl = document.getElementById('leaderboardUrlInput').value.trim();
+
+            // AUTO-FIX ALGORITHMUS: Häufige KI-Fehler reparieren
+            let processedText = "";
+            let inString = false;
+            for (let i = 0; i < jsonText.length; i++) {
+                let c = jsonText[i];
+                if (c === '"') {
+                    let backslashCount = 0;
+                    let j = i - 1;
+                    while (j >= 0 && jsonText[j] === '\\') {
+                        backslashCount++;
+                        j--;
+                    }
+                    if (backslashCount % 2 === 0) {
+                        inString = !inString;
+                    }
+                    processedText += c;
+                }
+                else if (c === '\n' || c === '\r') {
+                    if (inString) {
+                        processedText += (c === '\n' ? '<br>' : '');
+                    } else {
+                        processedText += c;
+                    }
+                }
+                else {
+                    processedText += c;
+                }
+            }
+
+            // Behebe KI-Halluzinationen (escapte HTML-Tags wie \<b\> oder \/b)
+            processedText = processedText.replace(/\\([<>\/])/g, '$1');
+
+            // LaTeX Backslashes normalisieren (alle einfachen Backslashes verdoppeln, außer bei Quotes)
+            processedText = processedText.replace(/\\\\/g, '\\').replace(/\\(?=[^"])/g, '\\\\');
+
+            let config;
+            try {
+                config = JSON.parse(processedText);
+
+                // Optisches Feedback: Reparierten Code wieder ins Textfeld setzen
+                if (jsonText !== processedText) {
+                    document.getElementById('jsonInput').value = JSON.stringify(config, null, 2);
+                }
+            } catch (e) {
+                alert("Fehlerhaftes JSON! Das Template enthält irreparable Strukturfehler.\n\nDetails: " + e.message);
+                return;
+            }
+
+            // Sicherstellen, dass Challenges mit unterschiedlichen Topics getrennt behandelt werden
+            if (config.topic) {
+                const topicSlug = config.topic.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                if (!config.gameId.includes(topicSlug)) {
+                    config.gameId = config.gameId + '_' + topicSlug;
+                }
+            }
+
+            // Automatische Verschlüsselung der Lösungen (Schutz vor Schülern)
+            config.tasks.forEach(t => {
+                // Cheat-Text für Lehrer (Klartext) Base64 verschlüsseln
+                if (t.cheat) {
+                    t.cheatBase64 = btoa(unescape(encodeURIComponent(t.cheat)));
+                    delete t.cheat;
+                }
+
+                if (t.type === 'input') {
+                    // Gültige Eingaben normieren (Kleinbuchstaben, Leerzeichen weg) und Base64 verschlüsseln
+                    t.correctValuesBase64 = t.correctValues.map(v => btoa(unescape(encodeURIComponent(v.toString().trim().toLowerCase()))));
+                    delete t.correctValues;
+                } else if (t.type === 'mc') {
+                    // Index mit einfacher Mathematik verschleiern, damit nicht einfach "correctIndex: 1" im Code steht
+                    t.correctIndexObfuscated = (t.correctIndex * 13) + 7;
+                    delete t.correctIndex;
+                }
+            });
+
+            // JSON extrem sicher als Base64 in die Datei injizieren (verhindert Formatierungsabstürze)
+            const configBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+
+            const engineHTML = `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Terminal - ${config.topic}</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"><\/script>
+    <style>
+        :root { --bg-color: #0a0a0a; --text-main: #e0e0e0; --accent-green: #33ff33; --accent-cyan: #00ffff; --accent-yellow: #ffff33; --accent-orange: #ffaa00; --accent-red: #ff3333; --accent-magenta: #ff33ff; --panel-bg: #151515; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: var(--bg-color); color: var(--text-main); font-family: 'VT323', monospace; overflow: hidden; font-size: clamp(14px, 2.2vh, 26px); }
+        .scanlines { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.1) 50%); background-size: 100% 4px; pointer-events: none; z-index: 100; }
+        #terminal { position: relative; z-index: 10; width: 100vw; max-width: 100vw; height: 100vh; margin: 0; display: flex; flex-direction: column; padding: 2vh 2vw; box-sizing: border-box; }
+        #header { display: flex; justify-content: space-between; border-bottom: 2px solid var(--accent-cyan); padding-bottom: 1vh; margin-bottom: 1.5vh; color: var(--accent-cyan); font-size: 1.1em; }
+        #content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
+        #content::-webkit-scrollbar { display: none; }
+        .title { font-size: 2.2em; text-align: center; margin-bottom: 1.5vh; color: var(--accent-cyan); letter-spacing: 2px; }
+        .task-box { border: 2px solid #333; padding: 2vh 2vw; margin-bottom: 1.5vh; background: var(--panel-bg); border-radius: 8px; width: 100%; box-sizing: border-box; }
+        .source { font-size: 1em; color: var(--accent-orange); margin-bottom: 1vh; display: block; }
+        .task-text { font-size: 1.2em; line-height: 1.4; color: var(--text-main); }
+        .instruction { margin-top: 1.5vh; color: var(--accent-yellow); font-size: 1.1em; border-left: 4px solid var(--accent-yellow); padding-left: 1vw; }
+        input[type="text"] { background: transparent; border: none; border-bottom: 2px solid var(--accent-green); color: var(--accent-green); font-family: 'VT323', monospace; font-size: 1.3em; outline: none; width: 6em; text-align: center; margin-right: 1vw; }
+        button { background: transparent; color: var(--accent-green); border: 2px solid var(--accent-green); border-radius: 4px; padding: 0.8vh 1.5vw; font-family: 'VT323', monospace; font-size: 1.1em; cursor: pointer; text-transform: uppercase; transition: all 0.2s; margin-top: 1vh; }
+        button:hover, button:active { background: var(--accent-green); color: var(--bg-color); }
+        button.hint-btn { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+        button.hint-btn:hover { background: var(--accent-cyan); color: var(--bg-color); }
+        .mc-option { display: block; margin: 1vh 0; cursor: pointer; padding: 1.2vh 2vw; border: 2px solid #333; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.02); font-size: 1em; line-height: 1.3; }
+        .mc-option:hover { border-color: var(--accent-cyan); background: rgba(0, 255, 255, 0.05); }
+        input[type="radio"] { appearance: none; width: 1.2em; height: 1.2em; border: 2px solid var(--accent-cyan); border-radius: 4px; display: inline-block; vertical-align: middle; margin-right: 1vw; position: relative; top: -2px; cursor: pointer; }
+        input[type="radio"]:checked { background-color: var(--accent-cyan); }
+        #hint-container { margin-top: 1vh; min-height: 6vh; }
+        .hint-text { color: var(--accent-yellow); margin: 0.5vh 0; font-size: 1.1em; }
+        #feedback { margin-top: 1vh; font-size: 1.3em; text-align: center; height: 3vh; font-weight: bold; }
+        .correct { color: var(--accent-green); }
+        .error { color: var(--accent-red); }
+        #cheat-area { display: none; margin-top: 1vh; padding: 1vh 2vw; background: rgba(255, 51, 255, 0.1); border: 2px dashed var(--accent-magenta); color: var(--accent-magenta); font-size: 1.1em; border-radius: 6px; }
+        .blink { animation: blinker 1s step-end infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+        .shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div id="terminal">
+        <div id="header" style="display:none;">
+            <span style="margin-right:2vw;">ID: <span id="ui-player" style="color:var(--accent-magenta)">-</span></span>
+            <span>ZEIT: <span id="ui-time" style="color:var(--text-main)">00:00</span></span>
+            <span>AUFGABE: <span id="ui-task" style="color:var(--text-main)">1/X</span></span>
+            <span>PUNKTE: <span id="ui-score" style="color:var(--accent-green)">0</span></span>
+        </div>
+        <div id="content">
+            <div style="display: flex; height: 100%; justify-content: center; align-items: center;">
+                <p class="blink" style="font-size: 2em; color: var(--accent-cyan);">VERBINDE MIT DEM NETZWERK...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // INJECTED CONFIGURATION (Secure Base64 parsing to prevent any string escaping issues)
+        const quizConfigBase64 = "${configBase64}";
+        const quizConfig = JSON.parse(decodeURIComponent(escape(atob(quizConfigBase64))));
+        const tasks = quizConfig.tasks;
+
+        // Add checker functions back to tasks based on obfuscated data
+        tasks.forEach(t => {
+            t.check = function(val) {
+                if(this.type === 'input') {
+                    const userNorm = btoa(unescape(encodeURIComponent(val.toString().trim().toLowerCase())));
+                    return this.correctValuesBase64.includes(userNorm);
+                } else {
+                    return ((this.correctIndexObfuscated - 7) / 13) === parseInt(val);
+                }
+            }
+        });
+
+        let currentTaskIndex = 0;
+        let points = 0;
+        let globalTime = 0;
+        let timerInterval = null;
+        let stats = { errors: 0, hintsUsed: 0, totalTime: 0 };
+        let currentHintsShown = 0;
+        let taskCompleted = false;
+        let cheatUsed = false;
+        let hasSavedGame = false;
+        let db, auth, appId, userId;
+        let pollingInterval = null;
+        const myPlayerId = (() => {
+            const str = navigator.userAgent + screen.width + "x" + screen.height + navigator.colorDepth + navigator.language + (navigator.hardwareConcurrency || '');
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
+            let deviceId = Math.abs(hash).toString(16).substring(0, 6).toUpperCase();
+            return 'Spieler-' + deviceId;
+        })();
+        
+        // Spieler-ID sofort im Header anzeigen
+        const uiPlayerElem = document.getElementById('ui-player');
+        if (uiPlayerElem) uiPlayerElem.innerText = myPlayerId;
+
+        function removeLeaderboardEntry() {
+            if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+        }
+
+        window.resumeGame = resumeGame;
+        window.resetAndStartGame = resetAndStartGame;
+        window.checkAnswer = checkAnswer;
+        window.showHint = showHint;
+        window.goToStartScreen = goToStartScreen;
+
+        const contentDiv = document.getElementById('content');
+        const headerDiv = document.getElementById('header');
+        const uiTime = document.getElementById('ui-time');
+        const uiTask = document.getElementById('ui-task');
+        const uiScore = document.getElementById('ui-score');
+
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            if (firebaseConfig) {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+                initAuth();
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) { userId = user.uid; await checkSavedGame(); }
+                });
+            } else {
+                console.warn("Lokal-Modus (Lokale Speicherung im Browser aktiv)");
+                checkSavedGame(); 
+            }
+        } catch(e) { console.error(e); checkSavedGame(); }
+
+        async function checkSavedGame() {
+            try {
+                let data = null;
+                if (userId && db) {
+                    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'gameState', quizConfig.gameId);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) data = docSnap.data();
+                } else {
+                    const savedState = localStorage.getItem(quizConfig.gameId + '_state');
+                    if (savedState) data = JSON.parse(savedState);
+                }
+
+                if (data) {
+                    currentTaskIndex = data.currentTaskIndex || 0;
+                    points = data.points || 0;
+                    globalTime = data.globalTime || 0;
+                    stats = data.stats || { errors: 0, hintsUsed: 0, totalTime: 0 };
+                    currentHintsShown = data.currentHintsShown || 0;
+                    cheatUsed = data.cheatUsed || false;
+                    hasSavedGame = true;
+                    if (data.isFinished) {
+                        endGame();
+                        return;
+                    }
+                }
+            } catch(e) { console.error("Laden fehlgeschlagen:", e); }
+            showStartScreen();
+        }
+
+        async function saveGameState(isFinished = false) {
+            const state = { currentTaskIndex, points, globalTime, stats, currentHintsShown, cheatUsed, isFinished };
+            try {
+                if (userId && db) {
+                    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'gameState', quizConfig.gameId);
+                    await setDoc(docRef, state);
+                } else {
+                    localStorage.setItem(quizConfig.gameId + '_state', JSON.stringify(state));
+                }
+            } catch (e) { console.error("Speichern fehlgeschlagen", e); }
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return \`\${m}:\${s}\`;
+        }
+
+        function updateHUD() {
+            uiTime.innerText = formatTime(globalTime);
+            uiTask.innerText = \`\${currentTaskIndex + 1}/\${tasks.length}\`;
+            uiScore.innerText = points;
+            uiScore.style.color = points >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        }
+
+        function goToStartScreen() { removeLeaderboardEntry(); hasSavedGame = false; showStartScreen(); }
+
+        function showStartScreen() {
+            headerDiv.style.display = 'none';
+            let actionButtons = '';
+            if (hasSavedGame) {
+                actionButtons = \`
+                    <p class="blink" style="color: var(--accent-magenta); font-size: 1.2em; margin-top: 2vh;">> UNBEENDETE SITZUNG GEFUNDEN <</p>
+                    <button onclick="resumeGame()" style="font-size: 1.5em; padding: 1.5vh 3vw; margin-top: 1vh;">SITZUNG FORTSETZEN</button>
+                \`;
+            } else {
+                actionButtons = \`
+                    <p class="blink" style="color: var(--accent-cyan); font-size: 1.3em; margin-top: 2vh;">> DRÜCKE ENTER ODER KLICKE START <</p>
+                    <button onclick="resetAndStartGame()" style="font-size: 1.6em; padding: 1.5vh 3vw; margin-top: 1.5vh;">START</button>
+                \`;
+            }
+
+            contentDiv.innerHTML = \`
+                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; width: 100%; text-align: center;">
+                    <h1 class="title" style="font-size: 2.5em; margin-bottom: 1vh; text-transform: uppercase;">\${quizConfig.topic.toUpperCase()}<br>AUFGABENCHALLENGE</h1>
+                    <p style="font-size: 1.3em; color: var(--accent-green); margin: 0.5vh 0;">SYSTEMBEREITSCHAFT HERGESTELLT.</p>
+                    <p style="color: var(--text-main); font-size: 1.1em; margin: 1vh 0;">\${quizConfig.bookHint.replace(/\\\\\\\\n|\\\\n/g, '<br>')}</p>
+                    <p style="color: var(--accent-cyan); font-size: 1.2em; margin: 1.5vh 0;">
+                        > WETTBEWERB: Tritt gegen deine Klassen- oder Kursmitglieder an!<br>
+                        > Benutze pro Team nur ein Gerät oder tritt direkt alleine an.<br>
+                        > Am Ende gewinnt die höchste Punktzahl!
+                    </p>
+                    <div class="task-box" style="margin: 2vh auto; width: 90%; max-width: 800px; text-align: left;">
+                        <span style="color: var(--accent-orange); font-size: 1.1em; display:block; margin-bottom: 1vh;">SPIELREGELN:</span>
+                        <ul style="color: var(--text-main); line-height: 1.4; margin: 0; padding-left: 2vw; font-size: 1.1em;">
+                            <li><span style="color:var(--accent-green)">+1000 Punkte</span> Startkapital pro Aufgabe</li>
+                            <li><span style="color:var(--accent-red)">-2 Punkte</span> pro Sekunde Bedenkzeit</li>
+                            <li><span style="color:var(--accent-red)">-200 / -500 Pkt.</span> für falsche Eingaben / Antworten</li>
+                            <li><span style="color:var(--accent-red)">-100 bis -400 Pkt.</span> pro angefordertem Tipp</li>
+                        </ul>
+                    </div>
+                    \${actionButtons}
+                </div>
+            \`;
+            
+            const startListener = (e) => {
+                if(e.key === 'Enter') {
+                    document.removeEventListener('keydown', startListener);
+                    if (hasSavedGame) resumeGame(); else resetAndStartGame();
+                }
+            };
+            document.addEventListener('keydown', startListener);
+        }
+
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            try {
+                if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.warn("Vollbild nicht möglich:", err));
+                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+                else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+            } catch(e) { console.warn("Fullscreen API blockiert", e); }
+        }
+
+        function startTimer() {
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                globalTime++;
+                if (points > -99999) points = Math.max(-99999, points - 2);
+                updateHUD();
+                if (globalTime % 5 === 0) saveGameState();
+            }, 1000);
+        }
+
+        function resetAndStartGame() {
+            removeLeaderboardEntry();
+            currentTaskIndex = 0; points = 0; globalTime = 0;
+            stats = { errors: 0, hintsUsed: 0, totalTime: 0 };
+            currentHintsShown = 0; cheatUsed = false; hasSavedGame = false;
+            try { localStorage.removeItem(quizConfig.gameId + '_state'); } catch(e) {}
+            enterFullscreen(); headerDiv.style.display = 'flex';
+            startTimer(); renderTask(false);
+        }
+
+        function resumeGame() {
+            enterFullscreen(); headerDiv.style.display = 'flex';
+            startTimer(); renderTask(true);
+        }
+
+        function renderTask(isResuming = false) {
+            if (currentTaskIndex >= tasks.length) { endGame(); return; }
+            taskCompleted = false;
+            if (!isResuming) { currentHintsShown = 0; points += 1000; saveGameState(); }
+            updateHUD();
+            const task = tasks[currentTaskIndex];
+
+            let inputHtml = '';
+            if (task.type === "input") {
+                inputHtml = \`
+                    <div style="margin-top: 1.5vh; display: flex; align-items: center; flex-wrap: wrap; font-size: 1.1em;">
+                        <span style="color: var(--accent-cyan); margin-right: 1vw;">> ANTWORT: </span>
+                        <input type="text" id="answer-input" autocomplete="off" autofocus>
+                        \${task.inputUnit ? \`<span style="color: var(--text-main);"> \${task.inputUnit}</span>\` : ''}
+                        <button onclick="checkAnswer()" style="margin-left: 2vw;">BESTÄTIGEN</button>
+                    </div>\`;
+            } else if (task.type === "mc") {
+                inputHtml = \`<div style="margin-top: 1.5vh;">\`;
+                task.options.forEach((opt, idx) => {
+                    inputHtml += \`<label class="mc-option"><input type="radio" name="mc-answer" value="\${idx}"><span style="color: var(--text-main);">\${opt}</span></label>\`;
+                });
+                inputHtml += \`<button onclick="checkAnswer()" style="margin-top: 1vh;">BESTÄTIGEN</button></div>\`;
+            }
+
+            contentDiv.innerHTML = \`
+                <div style="width: 100%; display: flex; flex-direction: column; justify-content: center; margin: auto 0;">
+                    <div class="task-box" id="current-task-box">
+                        <span class="source">[ \${task.source} ]</span>
+                        <div class="task-text">\${task.text}</div>
+                        \${task.constants ? \`<div style="border-left: 4px solid var(--accent-cyan); padding-left: 1vw; margin: 1.5vh 0; color: var(--accent-cyan); font-size: 1.1em; background: rgba(0,255,255,0.05); padding: 1vh;">> SYSTEMDATEN: \${task.constants}</div>\` : ''}
+                        \${task.imageHint ? \`<div style="border: 2px dashed var(--accent-cyan); padding: 1vh; margin: 1vh 0; color: var(--accent-cyan); text-align: center; font-size: 1.1em; border-radius: 8px; background: rgba(0,255,255,0.05);">[ ABBILDUNG: \${task.imageHint} ]</div>\` : ''}
+                        <div class="instruction">\${task.instruction}</div>
+                        \${inputHtml}
+                    </div>
+                    <div style="width: 100%; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                        <div>
+                            <button id="hint-btn" class="hint-btn" onclick="showHint()">TIPP ANFORDERN (-100 Pkt)</button>
+                            <span id="hint-counter" style="margin-left:1vw; color:#888; font-size: 1.1em;">0/\${task.hints.length} Tipps</span>
+                        </div>
+                        <div id="feedback"></div>
+                    </div>
+                    <div id="hint-container" style="width: 100%;"></div>
+                    <div id="cheat-area" style="width: 100%;"></div>
+                </div>\`;
+
+            // Tell MathJax to re-render formulas in the new HTML
+            if (window.MathJax) { window.MathJax.typesetPromise(); }
+
+            const hc = document.getElementById('hint-container');
+            const hintCounter = document.getElementById('hint-counter');
+            const hintBtn = document.getElementById('hint-btn');
+            
+            if (isResuming && currentHintsShown > 0) {
+                for (let i = 0; i < currentHintsShown; i++) hc.innerHTML += \`<div class="hint-text">> \${task.hints[i]}</div>\`;
+                hintCounter.innerText = \`\${currentHintsShown}/\${task.hints.length} Tipps\`;
+                if (currentHintsShown >= task.hints.length) {
+                    if (hintBtn) hintBtn.style.display = 'none';
+                } else {
+                    const nextCost = (currentHintsShown + 1) * 100;
+                    if (hintBtn) hintBtn.innerText = \`TIPP ANFORDERN (-\${nextCost} Pkt)\`;
+                }
+            } else {
+                hintCounter.innerText = \`0/\${task.hints.length} Tipps\`;
+                if (hintBtn) hintBtn.innerText = \`TIPP ANFORDERN (-100 Pkt)\`;
+            }
+
+            const inp = document.getElementById('answer-input');
+            if (inp) {
+                inp.focus();
+                inp.addEventListener('keypress', function (e) { if (e.key === 'Enter') checkAnswer(); });
+            }
+        }
+
+        function showHint() {
+            if (taskCompleted) return;
+            const task = tasks[currentTaskIndex];
+            if (currentHintsShown < task.hints.length) {
+                const hintCost = (currentHintsShown + 1) * 100;
+                points = Math.max(-99999, points - hintCost);
+                stats.hintsUsed++; updateHUD();
+                const hc = document.getElementById('hint-container');
+                hc.innerHTML += \`<div class="hint-text">> \${task.hints[currentHintsShown]}</div>\`;
+                currentHintsShown++;
+                document.getElementById('hint-counter').innerText = \`\${currentHintsShown}/\${task.hints.length} Tipps\`;
+                
+                const hintBtn = document.getElementById('hint-btn');
+                if (currentHintsShown < task.hints.length) {
+                    const nextCost = (currentHintsShown + 1) * 100;
+                    if (hintBtn) hintBtn.innerText = \`TIPP ANFORDERN (-\${nextCost} Pkt)\`;
+                } else {
+                    if (hintBtn) hintBtn.style.display = 'none';
+                }
+                
+                if (window.MathJax) { window.MathJax.typesetPromise(); }
+                saveGameState(); 
+            }
+        }
+
+        function checkAnswer() {
+            if (taskCompleted) return;
+            const task = tasks[currentTaskIndex];
+            const feedback = document.getElementById('feedback');
+            const taskBox = document.getElementById('current-task-box');
+            let isCorrect = false;
+
+            if (task.type === "input") {
+                const val = document.getElementById('answer-input').value;
+                if(!val) return;
+                isCorrect = task.check(val);
+            } else if (task.type === "mc") {
+                const selected = document.querySelector('input[name="mc-answer"]:checked');
+                if (!selected) return;
+                isCorrect = task.check(selected.value);
+            }
+
+            if (isCorrect) {
+                taskCompleted = true;
+                feedback.innerHTML = \`<span class="correct blink">> KORREKT!</span>\`;
+                taskBox.style.borderColor = "var(--accent-green)";
+                setTimeout(() => { currentTaskIndex++; renderTask(false); }, 1500);
+            } else {
+                const penalty = (task.type === "mc") ? 500 : 200;
+                points = Math.max(-99999, points - penalty);
+                stats.errors++; updateHUD(); saveGameState(); 
+                feedback.innerHTML = \`<span class="error">> FALSCH! (-\${penalty})</span>\`;
+                taskBox.classList.remove('shake'); void taskBox.offsetWidth; 
+                taskBox.classList.add('shake'); taskBox.style.borderColor = "var(--accent-red)";
+                setTimeout(() => { taskBox.style.borderColor = "#333"; }, 500);
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval); headerDiv.style.display = 'none';
+            stats.totalTime = globalTime; saveGameState(true); 
+
+            let maxBase = tasks.length * 1000;
+            let rank = ""; let rankColor = "";
+            if(points >= maxBase * 0.85) { rank = "SEHR GUT"; rankColor = "var(--accent-cyan)"; }
+            else if(points >= maxBase * 0.60) { rank = "GUT"; rankColor = "var(--accent-green)"; }
+            else if(points >= maxBase * 0.30) { rank = "OK"; rankColor = "var(--accent-yellow)"; }
+            else if(points > 0) { rank = "AUSBAUFÄHIG"; rankColor = "var(--accent-orange)"; }
+            else { rank = "NAJA... ÜBEN!"; rankColor = "var(--accent-red)"; }
+
+            let cheatMessage = "";
+            if (cheatUsed) {
+                rank = "UNGÜLTIG (CHEAT)"; rankColor = "var(--accent-magenta)";
+                cheatMessage = \`<p class="blink" style="color: var(--accent-magenta); margin: 1vh 0; font-weight: bold; font-size: 1.1em;">> ACHTUNG: LEHRER-CHEAT WURDE BENUTZT!</p>\`;
+            }
+
+            contentDiv.innerHTML = \`
+                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; width: 100%; text-align: center;">
+                    <h1 class="title" style="font-size: 2.5em; margin-bottom: 0.5vh;">*** CHALLENGE ABGESCHLOSSEN ***</h1>
+                    <h2 style="font-size: 1.5em; color: var(--accent-cyan); margin-top: 0; margin-bottom: 2vh; text-transform: uppercase;">THEMA: \${quizConfig.topic}</h2>
+                    <div class="task-box" style="text-align:left; font-size: 1.2em; padding: 3vh 3vw; width: 90%; max-width: 600px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-main); margin: 1.5vh 0;"><span>> GESAMTZEIT:</span> <span style="color: var(--accent-cyan);">\${formatTime(stats.totalTime)}</span></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-main); margin: 1.5vh 0;"><span>> FEHLEINGABEN:</span> <span style="color: var(--accent-red);">\${stats.errors}</span></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-main); margin: 1.5vh 0;"><span>> GENUTZTE TIPPS:</span> <span style="color: var(--accent-yellow);">\${stats.hintsUsed}</span></div>
+                        \${cheatMessage}
+                        <hr style="border-color: #333; margin: 2vh 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.3em; font-weight: bold; color: var(--text-main); margin: 1.5vh 0;"><span>> PUNKTE:</span> <span style="color: \${points > 0 ? 'var(--accent-green)' : 'var(--accent-red)'};">\${points}</span></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.3em; font-weight: bold; color: var(--text-main); margin: 1.5vh 0;"><span>> BEWERTUNGSRANG:</span> <span style="color: \${rankColor}; text-align: right; max-width: 50%;">\${rank}</span></div>
+                        <hr style="border-color: #333; margin: 2vh 0; display: none;" id="lb-separator">
+                        <div id="live-leaderboard" style="display: none; text-align: center;">
+                            <p class="blink" style="color: var(--accent-cyan); font-weight: bold; margin-bottom: 1vh;">> NETZWERK-VERGLEICH AKTIV <</p>
+                            <p style="font-size: 1.4em; font-weight: bold; color: var(--accent-yellow);" id="live-rank">LADE PLATZIERUNG...</p>
+                            <div id="live-leaderboard-list" style="margin-top: 1.5vh; text-align: left; font-size: 0.9em; background: rgba(0,0,0,0.5); padding: 1vh; border-radius: 4px; max-height: 15vh; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>\`;
+
+            if (cheatUsed) return;
+
+            // ALWAYS SHOW LEADERBOARD (Serverless via PHP Polling)
+            const lbUrl = "${leaderboardUrl}";
+            if (lbUrl) {
+                document.getElementById('lb-separator').style.display = 'block';
+                document.getElementById('live-leaderboard').style.display = 'block';
+
+                function updateLeaderboard() {
+                    fetch(lbUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId: quizConfig.gameId,
+                            playerId: myPlayerId,
+                            points: points
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.players) {
+                            let currentRank = 0;
+                            let totalPlayers = Object.keys(data.players).length;
+                            let listHTML = '';
+                            let index = 1;
+
+                            for (let id in data.players) {
+                                let p = data.players[id];
+                                if (id === myPlayerId) {
+                                    currentRank = index;
+                                    listHTML += \`<div style="color: var(--accent-green); font-weight: bold; margin: 0.5vh 0;">\${index}. \${id} (DU) - \${p.points} Pkt</div>\`;
+                                } else {
+                                    listHTML += \`<div style="color: var(--text-main); margin: 0.5vh 0;">\${index}. \${id} - \${p.points} Pkt</div>\`;
+                                }
+                                index++;
+                            }
+
+                            const rankElem = document.getElementById('live-rank');
+                            if (rankElem && currentRank > 0) rankElem.innerHTML = \`PLATZ \${currentRank} VON \${totalPlayers}\`;
+                            const listElem = document.getElementById('live-leaderboard-list');
+                            if (listElem) listElem.innerHTML = listHTML;
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Leaderboard Error:', err);
+                        const rankElem = document.getElementById('live-rank');
+                        if (rankElem) rankElem.innerHTML = "OFFLINE (Serverfehler)";
+                    });
+                }
+
+                // Sofort einmal abfragen und dann alle 3 Sekunden wiederholen
+                updateLeaderboard();
+                if (pollingInterval) clearInterval(pollingInterval);
+                pollingInterval = setInterval(updateLeaderboard, 3000);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key.toLowerCase() === 's') {
+                const cheatArea = document.getElementById('cheat-area');
+                if (cheatArea && currentTaskIndex < tasks.length && !taskCompleted) {
+                    if (cheatArea.style.display === 'block') {
+                        cheatArea.style.display = 'none';
+                    } else {
+                        cheatArea.style.display = 'block';
+                        cheatArea.innerText = "> LEHRER-MODUS - LÖSUNG: " + decodeURIComponent(escape(atob(tasks[currentTaskIndex].cheatBase64)));
+                        cheatUsed = true; saveGameState();
+                    }
+                }
+            }
+        });
+        
+        window.addEventListener('beforeunload', removeLeaderboardEntry);
+        window.addEventListener('unload', removeLeaderboardEntry);
+    <\/script>
+</body>
+</html>`;
+
+            // Download Trigger
+            const blob = new Blob([engineHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            // Clean filename
+            let filename = config.topic.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_challenge.html';
+            a.download = filename;
+
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>
