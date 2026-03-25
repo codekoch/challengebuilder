@@ -4,7 +4,7 @@ Der **Challenge Builder** ist ein Web-Tool für Lehrkräfte, um im Handumdrehen 
 
 ## ✨ Features
 
-*   **KI-gestützte Erstellung:** Nutze eine beliebige KI (ChatGPT, Claude, etc.), um Fotos von Schulbuchaufgaben direkt in das passende JSON-Format umzuwandeln. Ein optimierter System-Prompt ist direkt im Builder integriert.
+*   **KI-gestützte Erstellung:** Nutze eine beliebige KI (ChatGPT, Claude, Gemini etc.), um Fotos von Schulbuchaufgaben direkt in das passende JSON-Format umzuwandeln. Ein optimierter System-Prompt ist direkt im Builder integriert.
 *   **Retro-Terminal Design:** Die fertigen Challenges haben einen coolen Hacker-Look mit Scanlines und VT323-Font.
 *   **Stand-Alone HTML:** Das generierte Spiel ist eine einzige `.html` Datei. Keine Installation, keine Datenbank für das Grundspiel nötig. Ideal zum Teilen via AirDrop, Moodle oder Schul-Cloud.
 *   **Isolierte Sessions:** Fortschritte und Leaderboard-Sitzungen sind komplett voneinander isoliert (basierend auf der eindeutigen `gameId` und dem Themen-Namen), sodass mehrere Challenges parallel und getrennt verwaltet werden können.
