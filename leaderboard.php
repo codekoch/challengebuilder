@@ -42,18 +42,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         foreach ($activeFiles as $file) {
             $gameId = str_replace(['data_', '.json'], '', basename($file));
             $content = @file_get_contents($file);
-            $players = $content ? json_decode($content, true) : [];
+            $data = $content ? json_decode($content, true) : [];
+            // Kompatibilität mit altem Format (wo direkt ein Array von Spielern gespeichert wurde)
+            $players = isset($data['players']) ? $data['players'] : (is_array($data) && !isset($data['state']) ? $data : []);
+            $state = isset($data['state']) ? $data['state'] : 'lobby';
             
             if (!empty($players)) {
                 uasort($players, function($a, $b) { return $b['points'] <=> $a['points']; });
+                $stateBadge = $state === 'running' ? "<span style='color:red; font-size:0.8em;'>[LÄUFT]</span>" : "<span style='color:orange; font-size:0.8em;'>[LOBBY]</span>";
                 echo "<div class='card'>";
-                echo "<h3>🎮 " . htmlspecialchars($gameId) . " <span style='float: right; color: #0056b3; font-size: 0.9em;'>" . count($players) . " Spieler</span></h3><ul>";
+                echo "<h3>🎮 " . htmlspecialchars($gameId) . " " . $stateBadge . " <span style='float: right; color: #0056b3; font-size: 0.9em;'>" . count($players) . " Spieler</span></h3><ul>";
                 
                 $rank = 1;
                 foreach ($players as $id => $info) {
                     $sec = $now - $info['lastSeen'];
                     $secText = $sec === 0 ? "jetzt gerade" : "vor {$sec}s";
-                    echo "<li><div><strong>#{$rank} " . htmlspecialchars($id) . "</strong> <span class='time'>(" . $secText . " aktiv)</span></div> <span class='points'>" . $info['points'] . " Pkt</span></li>";
+                    $pointsDisplay = !empty($info['isCheater']) ? "<span style='color:#dc3545;'>NICHT GEWERTET</span>" : $info['points'] . " Pkt";
+                    echo "<li><div><strong>#{$rank} " . htmlspecialchars($id) . "</strong> <span class='time'>(" . $secText . " aktiv)</span></div> <span class='points'>" . $pointsDisplay . "</span></li>";
                     $rank++;
                 }
                 echo "</ul></div>";
@@ -80,41 +85,86 @@ if (!isset($input['gameId']) || !isset($input['playerId']) || !isset($input['poi
 $gameId = preg_replace('/[^a-zA-Z0-9_-]/', '', $input['gameId']);
 $playerId = htmlspecialchars(strip_tags($input['playerId']));
 $points = (int)$input['points'];
+$isReady = isset($input['isReady']) ? (bool)$input['isReady'] : false;
+$isCheaterObj = isset($input['isCheater']) ? (bool)$input['isCheater'] : false;
 
 // Der Dateiname basiert auf der gameId (z.B. data_halleffekt_challenge_01.json)
 $filename = "data_" . $gameId . ".json";
 
 // Bisherige Daten laden, falls vorhanden
 $data = [];
+$state = 'lobby';
+
 if (file_exists($filename)) {
     $jsonString = file_get_contents($filename);
     if ($jsonString) {
-        $data = json_decode($jsonString, true) ?: [];
+        $loadedData = json_decode($jsonString, true) ?: [];
+        if (isset($loadedData['players'])) {
+            $data = $loadedData['players'];
+            $state = isset($loadedData['state']) ? $loadedData['state'] : 'lobby';
+        } else {
+            // Migration von altem Format
+            $data = $loadedData; 
+            $state = 'lobby';
+        }
     }
 }
+
+// Keine neuen Spieler ins laufende Spiel lassen
+if (!isset($data[$playerId]) && $state === 'running') {
+    echo json_encode(['error' => 'game_started']);
+    exit;
+}
+
+// Existierenden Cheat-Status beibehalten (damit niemand es nach Cheat-Nutzung widerrufen kann)
+$existingCheater = isset($data[$playerId]['isCheater']) ? $data[$playerId]['isCheater'] : false;
+$finalCheater = $isCheaterObj || $existingCheater;
 
 // Aktuellen Spieler eintragen/updaten
 $data[$playerId] = [
     'points' => $points,
-    'lastSeen' => $now
+    'lastSeen' => $now,
+    'isReady' => $isReady,
+    'isCheater' => $finalCheater
 ];
 
-// Alte Spieler aussortieren (Timeout: 45 Sekunden)
+// Alte Spieler aussortieren (Timeout: 45 Sekunden) und überprüfen ob alle bereit sind
 $activePlayers = [];
+$allReady = true;
+
 foreach ($data as $id => $info) {
     if ($now - $info['lastSeen'] <= $timeout) {
         $activePlayers[$id] = $info;
+        if (empty($info['isReady'])) {
+            $allReady = false;
+        }
     }
 }
 
+// Wenn mindestens 1 Spieler da ist und ALLE bereit sind, startet das Spiel für alle
+if (!empty($activePlayers) && $allReady) {
+    $state = 'running';
+}
+
+$saveData = [
+    'state' => $state,
+    'players' => $activePlayers
+];
+
 // Aktualisierte Liste abspeichern
-file_put_contents($filename, json_encode($activePlayers));
+file_put_contents($filename, json_encode($saveData));
 
 // Liste nach Punkten absteigend sortieren
 uasort($activePlayers, function($a, $b) {
+    $aCheat = !empty($a['isCheater']);
+    $bCheat = !empty($b['isCheater']);
+    // Cheater immer nach unten
+    if ($aCheat && !$bCheat) return 1;
+    if (!$aCheat && $bCheat) return -1;
+    // Ansonsten Punkte vergleichen
     return $b['points'] <=> $a['points'];
 });
 
-// Die sortierte Liste an den Browser des Schülers zurücksenden
-echo json_encode(['players' => $activePlayers]);
+// Die sortierte Liste und den Status an den Browser des Schülers zurücksenden
+echo json_encode(['players' => $activePlayers, 'state' => $state]);
 ?>

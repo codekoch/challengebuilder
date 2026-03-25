@@ -423,6 +423,7 @@ Hinweise zur Struktur:
         <div id="header" style="display:none;">
             <span style="margin-right:2vw;">ID: <span id="ui-player" style="color:var(--accent-magenta)">-</span></span>
             <span>ZEIT: <span id="ui-time" style="color:var(--text-main)">00:00</span></span>
+            <span id="ui-rank-container" style="display:none;">PLATZ: <span id="ui-rank" style="color:var(--accent-yellow)">-</span></span>
             <span>AUFGABE: <span id="ui-task" style="color:var(--text-main)">1/X</span></span>
             <span>PUNKTE: <span id="ui-score" style="color:var(--accent-green)">0</span></span>
         </div>
@@ -466,6 +467,10 @@ Hinweise zur Struktur:
         let hasSavedGame = false;
         let db, auth, appId, userId;
         let pollingInterval = null;
+        let isReady = false;
+        let lbState = 'lobby';
+        let lbError = false;
+        const LB_URL = "${leaderboardUrl}";
         const myPlayerId = (() => {
             const str = navigator.userAgent + screen.width + "x" + screen.height + navigator.colorDepth + navigator.language + (navigator.hardwareConcurrency || '');
             let hash = 0;
@@ -487,12 +492,14 @@ Hinweise zur Struktur:
         window.checkAnswer = checkAnswer;
         window.showHint = showHint;
         window.goToStartScreen = goToStartScreen;
+        window.setReadyStatus = setReadyStatus;
 
         const contentDiv = document.getElementById('content');
         const headerDiv = document.getElementById('header');
         const uiTime = document.getElementById('ui-time');
         const uiTask = document.getElementById('ui-task');
         const uiScore = document.getElementById('ui-score');
+        const uiRank = document.getElementById('ui-rank');
 
         try {
             const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
@@ -572,12 +579,99 @@ Hinweise zur Struktur:
             uiTask.innerText = \`\${currentTaskIndex + 1}/\${tasks.length}\`;
             uiScore.innerText = points;
             uiScore.style.color = points >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            const rankContainer = document.getElementById('ui-rank-container');
+            if (rankContainer) {
+                rankContainer.style.display = (currentTaskIndex > 0) ? 'inline' : 'none';
+            }
         }
 
-        function goToStartScreen() { removeLeaderboardEntry(); hasSavedGame = false; showStartScreen(); }
+        function pollLeaderboard() {
+            if (!LB_URL || lbError) return;
+            fetch(LB_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId: quizConfig.gameId, playerId: myPlayerId, points: points, isReady: isReady, isCheater: cheatUsed })
+            }).then(r => r.json()).then(data => {
+                if (data.error === 'game_started') {
+                    lbError = true;
+                    if (pollingInterval) clearInterval(pollingInterval);
+                    document.body.innerHTML = '<div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; text-align:center;"><h1 style="color:var(--accent-red); font-size:3em;">ZUGRIFF VERWEIGERT</h1><p style="font-size:1.5em; color:var(--text-main);">Das Spiel wurde bereits gestartet. Ein nachträglicher Beitritt ist nicht möglich.</p></div>';
+                    return;
+                }
+                if (data.players) {
+                    let totalPlayers = Object.keys(data.players).length;
+                    let currentRank = 0;
+                    let index = 1;
+                    let readyCount = 0;
+                    let listHTML = '';
+                    let lastShownIndex = 0;
+                    for (let id in data.players) {
+                        let p = data.players[id];
+                        if (p.isReady) readyCount++;
+                        if (id === myPlayerId) currentRank = index;
+                        
+                        if (index <= 6 || id === myPlayerId) {
+                            let ptsDisplay = p.isCheater ? "NICHT GEWERTET" : \`\${p.points} Pkt\`;
+                            if (index > lastShownIndex + 1) {
+                                listHTML += \`<div style="text-align:center; color:#888; margin: 0.5vh 0;">...</div>\`;
+                            }
+                            if (id === myPlayerId) {
+                                let color = p.isCheater ? "var(--accent-magenta)" : "var(--accent-green)";
+                                listHTML += \`<div style="color: \${color}; font-weight: bold; margin: 0.5vh 0;">\${index}. \${id} (DU) - \${ptsDisplay}</div>\`;
+                            } else {
+                                let color = p.isCheater ? "var(--accent-magenta)" : "var(--text-main)";
+                                listHTML += \`<div style="color: \${color}; margin: 0.5vh 0;">\${index}. \${id} - \${ptsDisplay}</div>\`;
+                            }
+                            lastShownIndex = index;
+                        }
+                        index++;
+                    }
+                    if (uiRank && currentRank > 0) uiRank.innerText = \`\${currentRank}/\${totalPlayers}\`;
+                    const rankElem = document.getElementById('live-rank');
+                    if (rankElem && currentRank > 0) rankElem.innerHTML = \`PLATZ \${currentRank} VON \${totalPlayers}\`;
+                    const listElem = document.getElementById('live-leaderboard-list');
+                    if (listElem) listElem.innerHTML = listHTML;
+                    
+                    const pCountInfo = document.getElementById('lobby-player-count');
+                    if (pCountInfo) pCountInfo.innerHTML = \`VERBUNDENE SPIELER: <span style="color:var(--accent-cyan)">\${totalPlayers}</span> | BEREIT: <span style="color:var(--accent-green)">\${readyCount}</span>\`;
+
+                    if (data.state === 'running' && lbState === 'lobby') {
+                        lbState = 'running';
+                        if (!hasSavedGame && currentTaskIndex === 0 && points === 0) {
+                            resetAndStartGame();
+                        }
+                    }
+                }
+            }).catch(e => console.error('Leaderboard Error:', e));
+        }
+
+        function startPolling() {
+            if (LB_URL && !pollingInterval) {
+                pollLeaderboard();
+                pollingInterval = setInterval(pollLeaderboard, 2000);
+            }
+        }
+
+        function goToStartScreen() { hasSavedGame = false; showStartScreen(); }
+
+        function setReadyStatus() {
+            window.isReady = true; isReady = true;
+            pollLeaderboard();
+            const btn = document.getElementById('start-btn');
+            if(btn) {
+                btn.innerText = "WARTE AUF ANDERE SPIELER...";
+                btn.disabled = true;
+                btn.style.opacity = "0.5";
+                btn.style.cursor = "not-allowed";
+            }
+            const info = document.getElementById('start-info');
+            if(info) info.innerHTML = "STATUS: <span style='color:var(--accent-green)'>BEREIT</span>. Das Spiel startet, sobald alle verbundenen Spieler bereit sind.";
+        }
 
         function showStartScreen() {
             headerDiv.style.display = 'none';
+            lbState = 'lobby';
+            isReady = false;
             let actionButtons = '';
             if (hasSavedGame) {
                 actionButtons = \`
@@ -586,8 +680,9 @@ Hinweise zur Struktur:
                 \`;
             } else {
                 actionButtons = \`
-                    <p class="blink" style="color: var(--accent-cyan); font-size: 1.3em; margin-top: 2vh;">> DRÜCKE ENTER ODER KLICKE START <</p>
-                    <button onclick="resetAndStartGame()" style="font-size: 1.6em; padding: 1.5vh 3vw; margin-top: 1.5vh;">START</button>
+                    <p class="blink" id="start-info" style="color: var(--accent-cyan); font-size: 1.3em; margin-top: 2vh;">> DRÜCKE ENTER ODER KLICKE START WENN BEREIT <</p>
+                    <p id="lobby-player-count" style="font-size: 1.2em; color: var(--text-main); margin-bottom: 2vh; border: 1px dashed var(--accent-cyan); padding: 1vh; background: rgba(0,255,255,0.05); border-radius: 4px;">VERBUNDENE SPIELER: Lade...</p>
+                    <button id="start-btn" onclick="setReadyStatus()" style="font-size: 1.6em; padding: 1.5vh 3vw; margin-top: 1vh;">START</button>
                 \`;
             }
 
@@ -616,11 +711,17 @@ Hinweise zur Struktur:
             
             const startListener = (e) => {
                 if(e.key === 'Enter') {
-                    document.removeEventListener('keydown', startListener);
-                    if (hasSavedGame) resumeGame(); else resetAndStartGame();
+                    if (hasSavedGame) {
+                        document.removeEventListener('keydown', startListener);
+                        resumeGame();
+                    } else if (!isReady) {
+                        setReadyStatus();
+                    }
                 }
             };
             document.addEventListener('keydown', startListener);
+            
+            startPolling();
         }
 
         function enterFullscreen() {
@@ -643,7 +744,6 @@ Hinweise zur Struktur:
         }
 
         function resetAndStartGame() {
-            removeLeaderboardEntry();
             currentTaskIndex = 0; points = 0; globalTime = 0;
             stats = { errors: 0, hintsUsed: 0, totalTime: 0 };
             currentHintsShown = 0; cheatUsed = false; hasSavedGame = false;
@@ -653,6 +753,8 @@ Hinweise zur Struktur:
         }
 
         function resumeGame() {
+            isReady = true; lbState = 'running';
+            startPolling();
             enterFullscreen(); headerDiv.style.display = 'flex';
             startTimer(); renderTask(true);
         }
@@ -827,60 +929,12 @@ Hinweise zur Struktur:
                     </div>
                 </div>\`;
 
-            if (cheatUsed) return;
-
             // ALWAYS SHOW LEADERBOARD (Serverless via PHP Polling)
-            const lbUrl = "${leaderboardUrl}";
-            if (lbUrl) {
+            if (LB_URL) {
                 document.getElementById('lb-separator').style.display = 'block';
                 document.getElementById('live-leaderboard').style.display = 'block';
-
-                function updateLeaderboard() {
-                    fetch(lbUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            gameId: quizConfig.gameId,
-                            playerId: myPlayerId,
-                            points: points
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.players) {
-                            let currentRank = 0;
-                            let totalPlayers = Object.keys(data.players).length;
-                            let listHTML = '';
-                            let index = 1;
-
-                            for (let id in data.players) {
-                                let p = data.players[id];
-                                if (id === myPlayerId) {
-                                    currentRank = index;
-                                    listHTML += \`<div style="color: var(--accent-green); font-weight: bold; margin: 0.5vh 0;">\${index}. \${id} (DU) - \${p.points} Pkt</div>\`;
-                                } else {
-                                    listHTML += \`<div style="color: var(--text-main); margin: 0.5vh 0;">\${index}. \${id} - \${p.points} Pkt</div>\`;
-                                }
-                                index++;
-                            }
-
-                            const rankElem = document.getElementById('live-rank');
-                            if (rankElem && currentRank > 0) rankElem.innerHTML = \`PLATZ \${currentRank} VON \${totalPlayers}\`;
-                            const listElem = document.getElementById('live-leaderboard-list');
-                            if (listElem) listElem.innerHTML = listHTML;
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Leaderboard Error:', err);
-                        const rankElem = document.getElementById('live-rank');
-                        if (rankElem) rankElem.innerHTML = "OFFLINE (Serverfehler)";
-                    });
-                }
-
-                // Sofort einmal abfragen und dann alle 3 Sekunden wiederholen
-                updateLeaderboard();
-                if (pollingInterval) clearInterval(pollingInterval);
-                pollingInterval = setInterval(updateLeaderboard, 3000);
+                // Trigger immediate update
+                pollLeaderboard();
             }
         }
 
