@@ -17,7 +17,7 @@ Der **Challenge Builder** ist ein Web-Tool für Lehrkräfte, um im Handumdrehen 
     * *Hard-Limit: Der Punktestand fällt niemals unter -99999.*
 *   **Anti-Cheat Schutz:** Die Lösungen sind im Quellcode der generierten HTML-Datei Base64-verschlüsselt und obfuskiert.
 *   **Lehrer-Modus (Cheat):** Mit der Tastenkombination `Alt + S` kann sich die Lehrkraft die Lösung jederzeit im Spiel als Klartext einblenden lassen. *Achtung: Im aktivierten Leaderboard-Modus führt dies zu einer offensichtlichen "NICHT GEWERTET"-Markierung für den Spieler!*
-*   **Optionales Live-Leaderboard mit Lobby-System:** Das beiliegende PHP-Skript (`leaderboard.php`) aktiviert einen serverlosen Multiplayer-Wettkampfmechanismus samt Warte-Lobby.
+*   **Optionales Live-Leaderboard mit Lobby-System:** Das beiliegende PHP-Skript (`leaderboard.php`) aktiviert einen Multiplayer-Wettkampfmechanismus samt Warte-Lobby.
 
 ---
 
