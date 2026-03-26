@@ -437,7 +437,7 @@ Hinweise zur Struktur:
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // INJECTED CONFIGURATION (Secure Base64 parsing to prevent any string escaping issues)
         const quizConfigBase64 = "${configBase64}";
@@ -458,6 +458,7 @@ Hinweise zur Struktur:
 
         let currentTaskIndex = 0;
         let points = 0;
+        let currentTaskPoints = 1000;
         let globalTime = 0;
         let timerInterval = null;
         let stats = { errors: 0, hintsUsed: 0, totalTime: 0 };
@@ -465,18 +466,25 @@ Hinweise zur Struktur:
         let taskCompleted = false;
         let cheatUsed = false;
         let hasSavedGame = false;
+        let isPlayerFinished = false;
         let db, auth, appId, userId;
         let pollingInterval = null;
         let isReady = false;
         let lbState = 'lobby';
         let lbError = false;
+        let lastServerReset = 0;
+        let savedSessionReset = 0;
         const LB_URL = "${leaderboardUrl}";
         const myPlayerId = (() => {
-            const str = navigator.userAgent + screen.width + "x" + screen.height + navigator.colorDepth + navigator.language + (navigator.hardwareConcurrency || '');
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
-            let deviceId = Math.abs(hash).toString(16).substring(0, 6).toUpperCase();
-            return 'Spieler-' + deviceId;
+            let pId = localStorage.getItem('challenge_p_id');
+            if (!pId) {
+                const str = navigator.userAgent + screen.width + "x" + screen.height + navigator.colorDepth + navigator.language + (navigator.hardwareConcurrency || '') + Math.random();
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
+                pId = 'Spieler-' + Math.abs(hash).toString(16).substring(0, 6).toUpperCase();
+                localStorage.setItem('challenge_p_id', pId);
+            }
+            return pId;
         })();
         
         // Spieler-ID sofort im Header anzeigen
@@ -542,10 +550,13 @@ Hinweise zur Struktur:
                 if (data) {
                     currentTaskIndex = data.currentTaskIndex || 0;
                     points = data.points || 0;
+                    currentTaskPoints = data.currentTaskPoints !== undefined ? data.currentTaskPoints : 1000;
                     globalTime = data.globalTime || 0;
                     stats = data.stats || { errors: 0, hintsUsed: 0, totalTime: 0 };
                     currentHintsShown = data.currentHintsShown || 0;
                     cheatUsed = data.cheatUsed || false;
+                    isPlayerFinished = data.isFinished || false;
+                    savedSessionReset = data.sessionReset || 0;
                     hasSavedGame = true;
                     if (data.isFinished) {
                         endGame();
@@ -557,7 +568,7 @@ Hinweise zur Struktur:
         }
 
         async function saveGameState(isFinished = false) {
-            const state = { currentTaskIndex, points, globalTime, stats, currentHintsShown, cheatUsed, isFinished };
+            const state = { currentTaskIndex, points, currentTaskPoints, globalTime, stats, currentHintsShown, cheatUsed, isFinished, sessionReset: lastServerReset };
             try {
                 if (userId && db) {
                     const docRef = doc(db, 'artifacts', appId, 'users', userId, 'gameState', quizConfig.gameId);
@@ -566,6 +577,16 @@ Hinweise zur Struktur:
                     localStorage.setItem(quizConfig.gameId + '_state', JSON.stringify(state));
                 }
             } catch (e) { console.error("Speichern fehlgeschlagen", e); }
+        }
+
+        async function clearGameState() {
+            try { localStorage.removeItem(quizConfig.gameId + '_state'); } catch(e) {}
+            if (userId && db) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'gameState', quizConfig.gameId);
+                    await deleteDoc(docRef);
+                } catch(e) { console.error("Firebase Delete Game Failed:", e); }
+            }
         }
 
         function formatTime(seconds) {
@@ -586,18 +607,36 @@ Hinweise zur Struktur:
         }
 
         function pollLeaderboard() {
-            if (!LB_URL || lbError) return;
+            if (!LB_URL) return;
             fetch(LB_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameId: quizConfig.gameId, playerId: myPlayerId, points: points, isReady: isReady, isCheater: cheatUsed })
+                body: JSON.stringify({ gameId: quizConfig.gameId, playerId: myPlayerId, points: points, isReady: isReady, isCheater: cheatUsed, isFinished: isPlayerFinished })
             }).then(r => r.json()).then(data => {
                 if (data.error === 'game_started') {
-                    lbError = true;
-                    if (pollingInterval) clearInterval(pollingInterval);
-                    document.body.innerHTML = '<div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; text-align:center;"><h1 style="color:var(--accent-red); font-size:3em;">ZUGRIFF VERWEIGERT</h1><p style="font-size:1.5em; color:var(--text-main);">Das Spiel wurde bereits gestartet. Ein nachträglicher Beitritt ist nicht möglich.</p></div>';
+                    if (!lbError) {
+                        lbError = true;
+                        document.body.innerHTML = '<div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; text-align:center;"><h1 style="color:var(--accent-red); font-size:3em;">ZUGRIFF VERWEIGERT</h1><p style="font-size:1.5em; color:var(--text-main);">Das Spiel wurde bereits gestartet. Ein nachträglicher Beitritt ist nicht möglich.</p><p style="color:#555; margin-top:2em; font-size:1em;">(Wartet auf einen Neustart durch den Lehrer...)</p></div>';
+                    }
+                    return;
+                } else if (lbError) {
+                    clearGameState().then(() => location.reload());
                     return;
                 }
+
+                if (data.reset) {
+                    if (lastServerReset === 0) {
+                        lastServerReset = data.reset;
+                        if (hasSavedGame && data.reset > savedSessionReset) {
+                            clearGameState().then(() => location.reload());
+                            return;
+                        }
+                    } else if (data.reset > lastServerReset) {
+                        clearGameState().then(() => location.reload());
+                        return;
+                    }
+                }
+
                 if (data.players) {
                     let totalPlayers = Object.keys(data.players).length;
                     let currentRank = 0;
@@ -605,6 +644,11 @@ Hinweise zur Struktur:
                     let readyCount = 0;
                     let listHTML = '';
                     let lastShownIndex = 0;
+                    let anyonePlaying = false;
+                    for (let id in data.players) {
+                        if (!data.players[id].isFinished) anyonePlaying = true;
+                    }
+
                     for (let id in data.players) {
                         let p = data.players[id];
                         if (p.isReady) readyCount++;
@@ -612,15 +656,17 @@ Hinweise zur Struktur:
                         
                         if (index <= 6 || id === myPlayerId) {
                             let ptsDisplay = p.isCheater ? "NICHT GEWERTET" : \`\${p.points} Pkt\`;
+                            let playerStatus = (lbState === 'running' && !p.isFinished) ? ' <i style="color:#d39e00; font-size:0.8em;">(noch im Spiel)</i>' : '';
+                            
                             if (index > lastShownIndex + 1) {
                                 listHTML += \`<div style="text-align:center; color:#888; margin: 0.5vh 0;">...</div>\`;
                             }
                             if (id === myPlayerId) {
                                 let color = p.isCheater ? "var(--accent-magenta)" : "var(--accent-green)";
-                                listHTML += \`<div style="color: \${color}; font-weight: bold; margin: 0.5vh 0;">\${index}. \${id} (DU) - \${ptsDisplay}</div>\`;
+                                listHTML += \`<div style="color: \${color}; font-weight: bold; margin: 0.5vh 0;">\${index}. \${id} (DU)\${playerStatus} - \${ptsDisplay}</div>\`;
                             } else {
                                 let color = p.isCheater ? "var(--accent-magenta)" : "var(--text-main)";
-                                listHTML += \`<div style="color: \${color}; margin: 0.5vh 0;">\${index}. \${id} - \${ptsDisplay}</div>\`;
+                                listHTML += \`<div style="color: \${color}; margin: 0.5vh 0;">\${index}. \${id}\${playerStatus} - \${ptsDisplay}</div>\`;
                             }
                             lastShownIndex = index;
                         }
@@ -632,6 +678,18 @@ Hinweise zur Struktur:
                     const listElem = document.getElementById('live-leaderboard-list');
                     if (listElem) listElem.innerHTML = listHTML;
                     
+                    const lbTitleElem = document.getElementById('lb-title');
+                    if (lbTitleElem && isPlayerFinished) {
+                        if (anyonePlaying) {
+                            lbTitleElem.innerHTML = \`> VORLÄUFIGES ERGEBNIS (ES WIRD NOCH GESPIELT) <\`;
+                            lbTitleElem.style.color = "var(--accent-orange)";
+                        } else {
+                            lbTitleElem.innerHTML = \`> ENDGÜLTIGES ERGEBNIS <\`;
+                            lbTitleElem.style.color = "var(--accent-green)";
+                            lbTitleElem.classList.remove('blink');
+                        }
+                    }
+
                     const pCountInfo = document.getElementById('lobby-player-count');
                     if (pCountInfo) pCountInfo.innerHTML = \`VERBUNDENE SPIELER: <span style="color:var(--accent-cyan)">\${totalPlayers}</span> | BEREIT: <span style="color:var(--accent-green)">\${readyCount}</span>\`;
 
@@ -737,17 +795,17 @@ Hinweise zur Struktur:
             if(timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 globalTime++;
-                if (points > -99999) points = Math.max(-99999, points - 2);
+                if (currentTaskPoints > -99999) currentTaskPoints = Math.max(-99999, currentTaskPoints - 2);
                 updateHUD();
                 if (globalTime % 5 === 0) saveGameState();
             }, 1000);
         }
 
         function resetAndStartGame() {
-            currentTaskIndex = 0; points = 0; globalTime = 0;
+            currentTaskIndex = 0; points = 0; currentTaskPoints = 1000; globalTime = 0;
             stats = { errors: 0, hintsUsed: 0, totalTime: 0 };
-            currentHintsShown = 0; cheatUsed = false; hasSavedGame = false;
-            try { localStorage.removeItem(quizConfig.gameId + '_state'); } catch(e) {}
+            currentHintsShown = 0; cheatUsed = false; hasSavedGame = false; isPlayerFinished = false;
+            clearGameState();
             enterFullscreen(); headerDiv.style.display = 'flex';
             startTimer(); renderTask(false);
         }
@@ -762,7 +820,7 @@ Hinweise zur Struktur:
         function renderTask(isResuming = false) {
             if (currentTaskIndex >= tasks.length) { endGame(); return; }
             taskCompleted = false;
-            if (!isResuming) { currentHintsShown = 0; points += 1000; saveGameState(); }
+            if (!isResuming) { currentHintsShown = 0; currentTaskPoints = 1000; saveGameState(); }
             updateHUD();
             const task = tasks[currentTaskIndex];
 
@@ -837,7 +895,7 @@ Hinweise zur Struktur:
             const task = tasks[currentTaskIndex];
             if (currentHintsShown < task.hints.length) {
                 const hintCost = (currentHintsShown + 1) * 100;
-                points = Math.max(-99999, points - hintCost);
+                currentTaskPoints = Math.max(-99999, currentTaskPoints - hintCost);
                 stats.hintsUsed++; updateHUD();
                 const hc = document.getElementById('hint-container');
                 hc.innerHTML += \`<div class="hint-text">> \${task.hints[currentHintsShown]}</div>\`;
@@ -857,6 +915,8 @@ Hinweise zur Struktur:
             }
         }
 
+        let feedbackTimeout = null;
+
         function checkAnswer() {
             if (taskCompleted) return;
             const task = tasks[currentTaskIndex];
@@ -874,23 +934,31 @@ Hinweise zur Struktur:
                 isCorrect = task.check(selected.value);
             }
 
+            if (feedbackTimeout) clearTimeout(feedbackTimeout);
+
             if (isCorrect) {
                 taskCompleted = true;
-                feedback.innerHTML = \`<span class="correct blink">> KORREKT!</span>\`;
+                points += currentTaskPoints;
+                updateHUD();
+                saveGameState();
+                const ptsText = currentTaskPoints >= 0 ? \`+\${currentTaskPoints}\` : \`\${currentTaskPoints}\`;
+                feedback.innerHTML = \`<span class="correct blink">> KORREKT! (\${ptsText} Pkt)</span>\`;
                 taskBox.style.borderColor = "var(--accent-green)";
                 setTimeout(() => { currentTaskIndex++; renderTask(false); }, 1500);
             } else {
                 const penalty = (task.type === "mc") ? 500 : 200;
-                points = Math.max(-99999, points - penalty);
+                currentTaskPoints = Math.max(-99999, currentTaskPoints - penalty);
                 stats.errors++; updateHUD(); saveGameState(); 
                 feedback.innerHTML = \`<span class="error">> FALSCH! (-\${penalty})</span>\`;
                 taskBox.classList.remove('shake'); void taskBox.offsetWidth; 
                 taskBox.classList.add('shake'); taskBox.style.borderColor = "var(--accent-red)";
                 setTimeout(() => { taskBox.style.borderColor = "#333"; }, 500);
+                feedbackTimeout = setTimeout(() => { feedback.innerHTML = ''; }, 2000);
             }
         }
 
         function endGame() {
+            isPlayerFinished = true;
             clearInterval(timerInterval); headerDiv.style.display = 'none';
             stats.totalTime = globalTime; saveGameState(true); 
 
@@ -922,7 +990,7 @@ Hinweise zur Struktur:
                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.3em; font-weight: bold; color: var(--text-main); margin: 1.5vh 0;"><span>> BEWERTUNGSRANG:</span> <span style="color: \${rankColor}; text-align: right; max-width: 50%;">\${rank}</span></div>
                         <hr style="border-color: #333; margin: 2vh 0; display: none;" id="lb-separator">
                         <div id="live-leaderboard" style="display: none; text-align: center;">
-                            <p class="blink" style="color: var(--accent-cyan); font-weight: bold; margin-bottom: 1vh;">> NETZWERK-VERGLEICH AKTIV <</p>
+                            <p class="blink" style="color: var(--accent-cyan); font-weight: bold; margin-bottom: 1vh;" id="lb-title">> NETZWERK-VERGLEICH AKTIV <</p>
                             <p style="font-size: 1.4em; font-weight: bold; color: var(--accent-yellow);" id="live-rank">LADE PLATZIERUNG...</p>
                             <div id="live-leaderboard-list" style="margin-top: 1.5vh; text-align: left; font-size: 0.9em; background: rgba(0,0,0,0.5); padding: 1vh; border-radius: 4px; max-height: 15vh; overflow-y: auto;"></div>
                         </div>
@@ -948,6 +1016,21 @@ Hinweise zur Struktur:
                         cheatArea.style.display = 'block';
                         cheatArea.innerText = "> LEHRER-MODUS - LÖSUNG: " + decodeURIComponent(escape(atob(tasks[currentTaskIndex].cheatBase64)));
                         cheatUsed = true; saveGameState();
+                    }
+                }
+            }
+            if (e.altKey && e.key.toLowerCase() === 'r') {
+                if (confirm("LEHRER-FUNKTION: Möchtest du diese Challenge für ALLE Spieler komplett zurücksetzen?")) {
+                    if (LB_URL) {
+                        fetch(LB_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ gameId: quizConfig.gameId, action: 'reset' })
+                        }).then(() => {
+                            clearGameState().then(() => location.reload()); 
+                        }).catch(e => alert("Fehler beim Reset: " + e));
+                    } else {
+                        clearGameState().then(() => location.reload());
                     }
                 }
             }
