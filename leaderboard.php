@@ -90,6 +90,23 @@ if (!isset($input['gameId'])) {
 
 $gameId = preg_replace('/[^a-zA-Z0-9_-]/', '', $input['gameId']);
 
+if (isset($input['action']) && $input['action'] === 'check') {
+    $filename = "data_" . $gameId . ".json";
+    if (file_exists($filename) && filesize($filename) > 0) {
+        $content = @file_get_contents($filename);
+        $loaded = $content ? json_decode($content, true) : null;
+        if ($loaded) {
+            $state = isset($loaded['state']) ? $loaded['state'] : 'lobby';
+            echo json_encode(['exists' => true, 'state' => $state]);
+        } else {
+            echo json_encode(['exists' => false]);
+        }
+    } else {
+        echo json_encode(['exists' => false]);
+    }
+    exit;
+}
+
 if (isset($input['action']) && $input['action'] === 'reset') {
     $filename = "data_" . $gameId . ".json";
     $fp = fopen($filename, 'c+');
