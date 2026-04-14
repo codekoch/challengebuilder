@@ -385,9 +385,9 @@ Hinweise zur Struktur:
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"><\/script>
     <style>
         :root { --bg-color: #0a0a0a; --text-main: #e0e0e0; --accent-green: #33ff33; --accent-cyan: #00ffff; --accent-yellow: #ffff33; --accent-orange: #ffaa00; --accent-red: #ff3333; --accent-magenta: #ff33ff; --panel-bg: #151515; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text-main); font-family: 'VT323', monospace; font-size: clamp(14px, 2.2vh, 26px); scrollbar-width: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; background-color: var(--bg-color); color: var(--text-main); font-family: 'VT323', monospace; font-size: clamp(14px, 2.2vh, 26px); scrollbar-width: none; }
         .scanlines { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.1) 50%); background-size: 100% 4px; pointer-events: none; z-index: 100; }
-        #terminal { position: relative; z-index: 10; width: 100%; max-width: 100%; height: max-content; min-height: 100vh; margin: 0; display: flex; flex-direction: column; padding: 2vh 2vw; box-sizing: border-box; }
+        #terminal { position: relative; z-index: 10; width: 100%; max-width: 100%; height: max-content; min-height: 100vh; min-height: 100dvh; margin: 0; display: flex; flex-direction: column; padding: 2vh 2vw; box-sizing: border-box; }
         #header { display: flex; justify-content: space-between; border-bottom: 2px solid var(--accent-cyan); padding-bottom: 1vh; margin-bottom: 1.5vh; color: var(--accent-cyan); font-size: 1.1em; }
         #content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
         #content::-webkit-scrollbar { display: none; }
