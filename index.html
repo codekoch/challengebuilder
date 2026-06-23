@@ -113,7 +113,8 @@ Bitte befolge strikt diese Regeln für die Ausgabe:
    - Biete pro Aufgabe bis zu 4 inhaltlich sinnvolle Tipps an, die schrittweise zur Lösung führen.
    - Wandle Erklär- oder Zeichenaufgaben in sinnvolle Multiple-Choice-Fragen (type: "mc") um.
    - Rechne bei Eingabe-Aufgaben (type: "input") exakte Ergebnisse aus. Gib im Array "correctValues" alle akzeptierten Schreibweisen als Strings an (z.B. ["1.71", "1,71", "1.7", "1,7"]).
-
+   - Stelle Vektoren in der vertikalen SChreibweise dar.
+            
 Das Ergebnis MUSS exakt diese JSON-Struktur haben:
 {
   "topic": "Titel des Themas (z.B. Hall-Effekt)",
@@ -159,7 +160,8 @@ Hinweise zur Struktur:
 - "correctIndex" (nur bei "mc"): Der nullbasierte Index der korrekten Antwort im options Array.
 - "correctValues" (nur bei "input"): Array mit akzeptierten Eingaben (Zahlen als Strings).
 - "inputUnit" (nur bei "input"): Die Einheit, die hinter dem Eingabefeld stehen soll (z.B. "V", "m/s", etc.). Setze es auf null, wenn keine Einheit gefragt ist.
-- "cheat": Wird dem Lehrer bei der Tastenkombination "Alt+S" im Klartext angezeigt.</textarea>
+- "cheat": Wird dem Lehrer bei der Tastenkombination "Alt+S" im Klartext angezeigt.
+Überrpüfe am Ende, ob alle Fragen und Antworten logisch zueinander passen und auch ob alles physikalisch und mathematisch korrekt ist.</textarea>
         <div style="display: flex; gap: 10px; align-items: center;">
             <button class="secondary" style="width: auto;" onclick="copyPrompt()">📋 Kopieren</button>
             <span id="copyMsg"
